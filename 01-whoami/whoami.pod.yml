@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: whoami-pod
+  namespace: whoami
+  # pattern for labels: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set
+  labels:
+    app.kubernetes.io/name: whoami
+spec:
+  containers:
+  - name: whoami
+    image: traefik/whoami
+    resources:
+      # fair style or static style: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#requests-and-limits
+      requests:
+        memory: "64Mi"
+        cpu: "250m"
+      #   
+      limits:
+        memory: "128Mi"
+        cpu: "700m"
+      # anti affinity / affinity
+    ports:
+      - containerPort: 80
