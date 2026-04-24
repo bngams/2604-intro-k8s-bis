@@ -1,0 +1,14 @@
+# Reference PVC configuration (not used directly - see volumeClaimTemplates in mysql.yml)
+# This file shows the PVC structure that gets automatically created by volumeClaimTemplates
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-data-mysql-0  # StatefulSet creates PVCs with pattern: <volumeClaimTemplate-name>-<statefulset-name>-<ordinal>
+  namespace: pet-clinic-db
+spec:
+  accessModes:
+    - ReadWriteOnce  # Single node read-write access (suitable for MySQL)
+  storageClassName: standard  # Minikube default StorageClass (hostPath provisioner)
+  resources:
+    requests:
+      storage: 8Gi  # Adjust size based on your needs
