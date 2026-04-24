@@ -1,0 +1,23 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: pet-clinic-app
+
+namePrefix: local-
+
+commonLabels:
+  environment: local
+
+resources:
+  - ../../base
+
+patchesStrategicMerge:
+  - replica-patch.yml
+  - ingress-patch.yml
+
+configMapGenerator:
+  - name: java-app-config
+    namespace: pet-clinic-app
+    behavior: merge
+    literals:
+      - logging.level.org.springframework=DEBUG

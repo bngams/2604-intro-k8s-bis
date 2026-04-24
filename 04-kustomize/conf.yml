@@ -1,0 +1,602 @@
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: Namespace
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","kind":"Namespace","metadata":{"annotations":{},"labels":{"environment":"demo"},"name":"pet-clinic-app"}}
+    creationTimestamp: "2026-04-22T13:46:26Z"
+    labels:
+      environment: demo
+      kubernetes.io/metadata.name: pet-clinic-app
+    name: pet-clinic-app
+    resourceVersion: "36373"
+    uid: f7aa0b7a-f2b4-4a2e-b13e-7b7a80d4a61d
+  spec:
+    finalizers:
+    - kubernetes
+  status:
+    phase: Active
+- apiVersion: v1
+  kind: Namespace
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","kind":"Namespace","metadata":{"annotations":{},"labels":{"environment":"demo"},"name":"pet-clinic-db"}}
+    creationTimestamp: "2026-04-22T13:46:26Z"
+    labels:
+      environment: demo
+      kubernetes.io/metadata.name: pet-clinic-db
+    name: pet-clinic-db
+    resourceVersion: "36375"
+    uid: 705b3849-ae05-428d-ab64-eedd34cc67d8
+  spec:
+    finalizers:
+    - kubernetes
+  status:
+    phase: Active
+- apiVersion: v1
+  data:
+    application.properties: |
+      # database init, supports mysql too
+      database=mysql
+      spring.datasource.url=jdbc:mysql://mysql-service.pet-clinic-db.svc.cluster.local:3306/petclinic
+      spring.datasource.username=${DB_USERNAME}
+      spring.datasource.password=${DB_PASSWORD}
+      # SQL is written to be idempotent so this is safe
+      spring.sql.init.mode=always
+
+      # Web
+      spring.thymeleaf.mode=HTML
+
+      # JPA
+      spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQLDialect
+      spring.jpa.open-in-view=true
+
+      # Internationalization
+      spring.messages.basename=messages/messages
+
+      # Actuator
+      management.endpoints.web.exposure.include=*
+      # Logging
+      #logging.config=classpath:logback-spring.xml
+      logging.level.org.springframework=INFO
+      # logging.level.org.springframework.web=DEBUG
+      # logging.level.org.springframework.context.annotation=TRACE
+
+      # Maximum time static resources should be cached
+      spring.web.resources.cache.cachecontrol.max-age=12h
+  kind: ConfigMap
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","data":{"application.properties":"# database init, supports mysql too\ndatabase=mysql\nspring.datasource.url=jdbc:mysql://mysql-service.pet-clinic-db.svc.cluster.local:3306/petclinic\nspring.datasource.username=${DB_USERNAME}\nspring.datasource.password=${DB_PASSWORD}\n# SQL is written to be idempotent so this is safe\nspring.sql.init.mode=always\n\n# Web\nspring.thymeleaf.mode=HTML\n\n# JPA\nspring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQLDialect\nspring.jpa.open-in-view=true\n\n# Internationalization\nspring.messages.basename=messages/messages\n\n# Actuator\nmanagement.endpoints.web.exposure.include=*\n# Logging\n#logging.config=classpath:logback-spring.xml\nlogging.level.org.springframework=INFO\n# logging.level.org.springframework.web=DEBUG\n# logging.level.org.springframework.context.annotation=TRACE\n\n# Maximum time static resources should be cached\nspring.web.resources.cache.cachecontrol.max-age=12h\n"},"kind":"ConfigMap","metadata":{"annotations":{},"labels":{"environment":"demo"},"name":"demo-java-app-config","namespace":"pet-clinic-app"}}
+    creationTimestamp: "2026-04-22T13:46:26Z"
+    labels:
+      environment: demo
+    name: demo-java-app-config
+    namespace: pet-clinic-app
+    resourceVersion: "36378"
+    uid: b43526cd-a725-4e4e-9c6c-626e87476fba
+- apiVersion: v1
+  data:
+    init.sql: |
+      CREATE USER '$MYSQL_USER'@'%' IDENTIFIED BY '$MYSQL_PASSWORD';
+      GRANT ALL PRIVILEGES ON petclinic.* TO '$MYSQL_USER'@'%';
+      FLUSH PRIVILEGES;
+
+      USE petclinic;
+
+      CREATE TABLE IF NOT EXISTS vets (
+        id INT(4) UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        first_name VARCHAR(30),
+        last_name VARCHAR(30),
+        INDEX(last_name)
+      ) engine=InnoDB;
+
+      CREATE TABLE IF NOT EXISTS specialties (
+        id INT(4) UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(80),
+        INDEX(name)
+      ) engine=InnoDB;
+
+      CREATE TABLE IF NOT EXISTS vet_specialties (
+        vet_id INT(4) UNSIGNED NOT NULL,
+        specialty_id INT(4) UNSIGNED NOT NULL,
+        FOREIGN KEY (vet_id) REFERENCES vets(id),
+        FOREIGN KEY (specialty_id) REFERENCES specialties(id),
+        UNIQUE (vet_id,specialty_id)
+      ) engine=InnoDB;
+
+      CREATE TABLE IF NOT EXISTS types (
+        id INT(4) UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(80),
+        INDEX(name)
+      ) engine=InnoDB;
+
+      CREATE TABLE IF NOT EXISTS owners (
+        id INT(4) UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        first_name VARCHAR(30),
+        last_name VARCHAR(30),
+        address VARCHAR(255),
+        city VARCHAR(80),
+        telephone VARCHAR(20),
+        INDEX(last_name)
+      ) engine=InnoDB;
+
+      CREATE TABLE IF NOT EXISTS pets (
+        id INT(4) UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(30),
+        birth_date DATE,
+        type_id INT(4) UNSIGNED NOT NULL,
+        owner_id INT(4) UNSIGNED,
+        INDEX(name),
+        FOREIGN KEY (owner_id) REFERENCES owners(id),
+        FOREIGN KEY (type_id) REFERENCES types(id)
+      ) engine=InnoDB;
+
+      CREATE TABLE IF NOT EXISTS visits (
+        id INT(4) UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        pet_id INT(4) UNSIGNED,
+        visit_date DATE,
+        description VARCHAR(255),
+        FOREIGN KEY (pet_id) REFERENCES pets(id)
+      ) engine=InnoDB;
+
+      INSERT IGNORE INTO vets VALUES (1, 'James', 'Carter');
+      INSERT IGNORE INTO vets VALUES (2, 'Helen', 'Leary');
+      INSERT IGNORE INTO vets VALUES (3, 'Linda', 'Douglas');
+      INSERT IGNORE INTO vets VALUES (4, 'Rafael', 'Ortega');
+      INSERT IGNORE INTO vets VALUES (5, 'Henry', 'Stevens');
+      INSERT IGNORE INTO vets VALUES (6, 'Sharon', 'Jenkins');
+
+      INSERT IGNORE INTO specialties VALUES (1, 'radiology');
+      INSERT IGNORE INTO specialties VALUES (2, 'surgery');
+      INSERT IGNORE INTO specialties VALUES (3, 'dentistry');
+
+      INSERT IGNORE INTO vet_specialties VALUES (2, 1);
+      INSERT IGNORE INTO vet_specialties VALUES (3, 2);
+      INSERT IGNORE INTO vet_specialties VALUES (3, 3);
+      INSERT IGNORE INTO vet_specialties VALUES (4, 2);
+      INSERT IGNORE INTO vet_specialties VALUES (5, 1);
+
+      INSERT IGNORE INTO types VALUES (1, 'cat');
+      INSERT IGNORE INTO types VALUES (2, 'dog');
+      INSERT IGNORE INTO types VALUES (3, 'lizard');
+      INSERT IGNORE INTO types VALUES (4, 'snake');
+      INSERT IGNORE INTO types VALUES (5, 'bird');
+      INSERT IGNORE INTO types VALUES (6, 'hamster');
+
+      INSERT IGNORE INTO owners VALUES (1, 'George', 'Franklin', '110 W. Liberty St.', 'Madison', '6085551023');
+      INSERT IGNORE INTO owners VALUES (2, 'Betty', 'Davis', '638 Cardinal Ave.', 'Sun Prairie', '6085551749');
+      INSERT IGNORE INTO owners VALUES (3, 'Eduardo', 'Rodriquez', '2693 Commerce St.', 'McFarland', '6085558763');
+      INSERT IGNORE INTO owners VALUES (4, 'Harold', 'Davis', '563 Friendly St.', 'Windsor', '6085553198');
+      INSERT IGNORE INTO owners VALUES (5, 'Peter', 'McTavish', '2387 S. Fair Way', 'Madison', '6085552765');
+      INSERT IGNORE INTO owners VALUES (6, 'Jean', 'Coleman', '105 N. Lake St.', 'Monona', '6085552654');
+      INSERT IGNORE INTO owners VALUES (7, 'Jeff', 'Black', '1450 Oak Blvd.', 'Monona', '6085555387');
+      INSERT IGNORE INTO owners VALUES (8, 'Maria', 'Escobito', '345 Maple St.', 'Madison', '6085557683');
+      INSERT IGNORE INTO owners VALUES (9, 'David', 'Schroeder', '2749 Blackhawk Trail', 'Madison', '6085559435');
+      INSERT IGNORE INTO owners VALUES (10, 'Carlos', 'Estaban', '2335 Independence La.', 'Waunakee', '6085555487');
+
+      INSERT IGNORE INTO pets VALUES (1, 'Leo', '2000-09-07', 1, 1);
+      INSERT IGNORE INTO pets VALUES (2, 'Basil', '2002-08-06', 6, 2);
+      INSERT IGNORE INTO pets VALUES (3, 'Rosy', '2001-04-17', 2, 3);
+      INSERT IGNORE INTO pets VALUES (4, 'Jewel', '2000-03-07', 2, 3);
+      INSERT IGNORE INTO pets VALUES (5, 'Iggy', '2000-11-30', 3, 4);
+      INSERT IGNORE INTO pets VALUES (6, 'George', '2000-01-20', 4, 5);
+      INSERT IGNORE INTO pets VALUES (7, 'Samantha', '1995-09-04', 1, 6);
+      INSERT IGNORE INTO pets VALUES (8, 'Max', '1995-09-04', 1, 6);
+      INSERT IGNORE INTO pets VALUES (9, 'Lucky', '1999-08-06', 5, 7);
+      INSERT IGNORE INTO pets VALUES (10, 'Mulligan', '1997-02-24', 2, 8);
+      INSERT IGNORE INTO pets VALUES (11, 'Freddy', '2000-03-09', 5, 9);
+      INSERT IGNORE INTO pets VALUES (12, 'Lucky', '2000-06-24', 2, 10);
+      INSERT IGNORE INTO pets VALUES (13, 'Sly', '2002-06-08', 1, 10);
+
+      INSERT IGNORE INTO visits VALUES (1, 7, '2010-03-04', 'rabies shot');
+      INSERT IGNORE INTO visits VALUES (2, 8, '2011-03-04', 'rabies shot');
+      INSERT IGNORE INTO visits VALUES (3, 8, '2009-06-04', 'neutered');
+      INSERT IGNORE INTO visits VALUES (4, 7, '2008-09-04', 'spayed');
+  kind: ConfigMap
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","data":{"init.sql":"CREATE USER '$MYSQL_USER'@'%' IDENTIFIED BY '$MYSQL_PASSWORD';\nGRANT ALL PRIVILEGES ON petclinic.* TO '$MYSQL_USER'@'%';\nFLUSH PRIVILEGES;\n\nUSE petclinic;\n\nCREATE TABLE IF NOT EXISTS vets (\n  id INT(4) UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,\n  first_name VARCHAR(30),\n  last_name VARCHAR(30),\n  INDEX(last_name)\n) engine=InnoDB;\n\nCREATE TABLE IF NOT EXISTS specialties (\n  id INT(4) UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,\n  name VARCHAR(80),\n  INDEX(name)\n) engine=InnoDB;\n\nCREATE TABLE IF NOT EXISTS vet_specialties (\n  vet_id INT(4) UNSIGNED NOT NULL,\n  specialty_id INT(4) UNSIGNED NOT NULL,\n  FOREIGN KEY (vet_id) REFERENCES vets(id),\n  FOREIGN KEY (specialty_id) REFERENCES specialties(id),\n  UNIQUE (vet_id,specialty_id)\n) engine=InnoDB;\n\nCREATE TABLE IF NOT EXISTS types (\n  id INT(4) UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,\n  name VARCHAR(80),\n  INDEX(name)\n) engine=InnoDB;\n\nCREATE TABLE IF NOT EXISTS owners (\n  id INT(4) UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,\n  first_name VARCHAR(30),\n  last_name VARCHAR(30),\n  address VARCHAR(255),\n  city VARCHAR(80),\n  telephone VARCHAR(20),\n  INDEX(last_name)\n) engine=InnoDB;\n\nCREATE TABLE IF NOT EXISTS pets (\n  id INT(4) UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,\n  name VARCHAR(30),\n  birth_date DATE,\n  type_id INT(4) UNSIGNED NOT NULL,\n  owner_id INT(4) UNSIGNED,\n  INDEX(name),\n  FOREIGN KEY (owner_id) REFERENCES owners(id),\n  FOREIGN KEY (type_id) REFERENCES types(id)\n) engine=InnoDB;\n\nCREATE TABLE IF NOT EXISTS visits (\n  id INT(4) UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,\n  pet_id INT(4) UNSIGNED,\n  visit_date DATE,\n  description VARCHAR(255),\n  FOREIGN KEY (pet_id) REFERENCES pets(id)\n) engine=InnoDB;\n\nINSERT IGNORE INTO vets VALUES (1, 'James', 'Carter');\nINSERT IGNORE INTO vets VALUES (2, 'Helen', 'Leary');\nINSERT IGNORE INTO vets VALUES (3, 'Linda', 'Douglas');\nINSERT IGNORE INTO vets VALUES (4, 'Rafael', 'Ortega');\nINSERT IGNORE INTO vets VALUES (5, 'Henry', 'Stevens');\nINSERT IGNORE INTO vets VALUES (6, 'Sharon', 'Jenkins');\n\nINSERT IGNORE INTO specialties VALUES (1, 'radiology');\nINSERT IGNORE INTO specialties VALUES (2, 'surgery');\nINSERT IGNORE INTO specialties VALUES (3, 'dentistry');\n\nINSERT IGNORE INTO vet_specialties VALUES (2, 1);\nINSERT IGNORE INTO vet_specialties VALUES (3, 2);\nINSERT IGNORE INTO vet_specialties VALUES (3, 3);\nINSERT IGNORE INTO vet_specialties VALUES (4, 2);\nINSERT IGNORE INTO vet_specialties VALUES (5, 1);\n\nINSERT IGNORE INTO types VALUES (1, 'cat');\nINSERT IGNORE INTO types VALUES (2, 'dog');\nINSERT IGNORE INTO types VALUES (3, 'lizard');\nINSERT IGNORE INTO types VALUES (4, 'snake');\nINSERT IGNORE INTO types VALUES (5, 'bird');\nINSERT IGNORE INTO types VALUES (6, 'hamster');\n\nINSERT IGNORE INTO owners VALUES (1, 'George', 'Franklin', '110 W. Liberty St.', 'Madison', '6085551023');\nINSERT IGNORE INTO owners VALUES (2, 'Betty', 'Davis', '638 Cardinal Ave.', 'Sun Prairie', '6085551749');\nINSERT IGNORE INTO owners VALUES (3, 'Eduardo', 'Rodriquez', '2693 Commerce St.', 'McFarland', '6085558763');\nINSERT IGNORE INTO owners VALUES (4, 'Harold', 'Davis', '563 Friendly St.', 'Windsor', '6085553198');\nINSERT IGNORE INTO owners VALUES (5, 'Peter', 'McTavish', '2387 S. Fair Way', 'Madison', '6085552765');\nINSERT IGNORE INTO owners VALUES (6, 'Jean', 'Coleman', '105 N. Lake St.', 'Monona', '6085552654');\nINSERT IGNORE INTO owners VALUES (7, 'Jeff', 'Black', '1450 Oak Blvd.', 'Monona', '6085555387');\nINSERT IGNORE INTO owners VALUES (8, 'Maria', 'Escobito', '345 Maple St.', 'Madison', '6085557683');\nINSERT IGNORE INTO owners VALUES (9, 'David', 'Schroeder', '2749 Blackhawk Trail', 'Madison', '6085559435');\nINSERT IGNORE INTO owners VALUES (10, 'Carlos', 'Estaban', '2335 Independence La.', 'Waunakee', '6085555487');\n\nINSERT IGNORE INTO pets VALUES (1, 'Leo', '2000-09-07', 1, 1);\nINSERT IGNORE INTO pets VALUES (2, 'Basil', '2002-08-06', 6, 2);\nINSERT IGNORE INTO pets VALUES (3, 'Rosy', '2001-04-17', 2, 3);\nINSERT IGNORE INTO pets VALUES (4, 'Jewel', '2000-03-07', 2, 3);\nINSERT IGNORE INTO pets VALUES (5, 'Iggy', '2000-11-30', 3, 4);\nINSERT IGNORE INTO pets VALUES (6, 'George', '2000-01-20', 4, 5);\nINSERT IGNORE INTO pets VALUES (7, 'Samantha', '1995-09-04', 1, 6);\nINSERT IGNORE INTO pets VALUES (8, 'Max', '1995-09-04', 1, 6);\nINSERT IGNORE INTO pets VALUES (9, 'Lucky', '1999-08-06', 5, 7);\nINSERT IGNORE INTO pets VALUES (10, 'Mulligan', '1997-02-24', 2, 8);\nINSERT IGNORE INTO pets VALUES (11, 'Freddy', '2000-03-09', 5, 9);\nINSERT IGNORE INTO pets VALUES (12, 'Lucky', '2000-06-24', 2, 10);\nINSERT IGNORE INTO pets VALUES (13, 'Sly', '2002-06-08', 1, 10);\n\nINSERT IGNORE INTO visits VALUES (1, 7, '2010-03-04', 'rabies shot');\nINSERT IGNORE INTO visits VALUES (2, 8, '2011-03-04', 'rabies shot');\nINSERT IGNORE INTO visits VALUES (3, 8, '2009-06-04', 'neutered');\nINSERT IGNORE INTO visits VALUES (4, 7, '2008-09-04', 'spayed');\n"},"kind":"ConfigMap","metadata":{"annotations":{},"labels":{"environment":"demo"},"name":"demo-mysql-configmap","namespace":"pet-clinic-db"}}
+    creationTimestamp: "2026-04-22T13:46:26Z"
+    labels:
+      environment: demo
+    name: demo-mysql-configmap
+    namespace: pet-clinic-db
+    resourceVersion: "36380"
+    uid: b7122f3c-9ab0-4b8e-919b-625e91dc77a5
+- apiVersion: v1
+  data:
+    password: Y3J1bmNob3BzQDEyMzQ=
+    username: Y3J1bmNob3Bz
+  kind: Secret
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","data":{"password":"Y3J1bmNob3BzQDEyMzQ=","username":"Y3J1bmNob3Bz"},"kind":"Secret","metadata":{"annotations":{},"labels":{"environment":"demo"},"name":"demo-mysql-cred","namespace":"pet-clinic-app"},"type":"Opaque"}
+    creationTimestamp: "2026-04-22T13:46:26Z"
+    labels:
+      environment: demo
+    name: demo-mysql-cred
+    namespace: pet-clinic-app
+    resourceVersion: "36381"
+    uid: d4f43230-7859-49b5-9bb9-0e92a47f3a6c
+  type: Opaque
+- apiVersion: v1
+  data:
+    password: Y3J1bmNob3BzQDEyMzQ=
+    username: Y3J1bmNob3Bz
+  kind: Secret
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","data":{"password":"Y3J1bmNob3BzQDEyMzQ=","username":"Y3J1bmNob3Bz"},"kind":"Secret","metadata":{"annotations":{},"labels":{"environment":"demo"},"name":"demo-mysql-cred","namespace":"pet-clinic-db"},"type":"Opaque"}
+    creationTimestamp: "2026-04-22T13:46:26Z"
+    labels:
+      environment: demo
+    name: demo-mysql-cred
+    namespace: pet-clinic-db
+    resourceVersion: "36382"
+    uid: 2fd820e4-5681-4760-abc2-206e7d3c6bac
+  type: Opaque
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"labels":{"environment":"demo"},"name":"demo-java-app-service","namespace":"pet-clinic-app"},"spec":{"ports":[{"port":8080,"protocol":"TCP","targetPort":8080}],"selector":{"app":"java-app","environment":"demo"},"type":"ClusterIP"}}
+    creationTimestamp: "2026-04-22T13:46:26Z"
+    labels:
+      environment: demo
+    name: demo-java-app-service
+    namespace: pet-clinic-app
+    resourceVersion: "36384"
+    uid: b2e4c8a6-43ba-41c3-a528-43d66083e482
+  spec:
+    clusterIP: 10.96.45.4
+    clusterIPs:
+    - 10.96.45.4
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - port: 8080
+      protocol: TCP
+      targetPort: 8080
+    selector:
+      app: java-app
+      environment: demo
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"labels":{"environment":"demo"},"name":"demo-mysql-service","namespace":"pet-clinic-db"},"spec":{"ports":[{"nodePort":30244,"port":3306,"protocol":"TCP","targetPort":3306}],"selector":{"app":"mysql","environment":"demo"},"type":"NodePort"}}
+    creationTimestamp: "2026-04-22T13:46:26Z"
+    labels:
+      environment: demo
+    name: demo-mysql-service
+    namespace: pet-clinic-db
+    resourceVersion: "36389"
+    uid: b9c7da7e-b0cc-47f4-89fe-de1dc80cbf3a
+  spec:
+    clusterIP: 10.106.45.170
+    clusterIPs:
+    - 10.106.45.170
+    externalTrafficPolicy: Cluster
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - nodePort: 30244
+      port: 3306
+      protocol: TCP
+      targetPort: 3306
+    selector:
+      app: mysql
+      environment: demo
+    sessionAffinity: None
+    type: NodePort
+  status:
+    loadBalancer: {}
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    annotations:
+      deployment.kubernetes.io/revision: "1"
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"apps/v1","kind":"Deployment","metadata":{"annotations":{},"labels":{"environment":"demo"},"name":"demo-java-app","namespace":"pet-clinic-app"},"spec":{"replicas":2,"selector":{"matchLabels":{"app":"java-app","environment":"demo"}},"template":{"metadata":{"labels":{"app":"java-app","environment":"demo"}},"spec":{"containers":[{"command":["java","-jar","/app/java.jar","--spring.config.location=/opt/config/application.properties","--spring.profiles.active=mysql"],"env":[{"name":"DB_USERNAME","valueFrom":{"secretKeyRef":{"key":"username","name":"demo-mysql-cred"}}},{"name":"DB_PASSWORD","valueFrom":{"secretKeyRef":{"key":"password","name":"demo-mysql-cred"}}}],"image":"techiescamp/kube-petclinic-app:3.0.0","livenessProbe":{"failureThreshold":3,"httpGet":{"path":"/actuator/health/liveness","port":8080},"periodSeconds":15,"timeoutSeconds":10},"name":"java-app-container","ports":[{"containerPort":8080}],"readinessProbe":{"failureThreshold":3,"httpGet":{"path":"/actuator/health/readiness","port":8080},"periodSeconds":10,"timeoutSeconds":10},"resources":{"limits":{"cpu":"200m","memory":"512Mi"},"requests":{"cpu":"100m","memory":"256Mi"}},"startupProbe":{"failureThreshold":30,"httpGet":{"path":"/actuator/health","port":8080},"initialDelaySeconds":180,"periodSeconds":20},"volumeMounts":[{"mountPath":"/opt/config","name":"java-app-config"}]}],"volumes":[{"configMap":{"name":"demo-java-app-config"},"name":"java-app-config"}]}}}}
+    creationTimestamp: "2026-04-22T13:46:26Z"
+    generation: 1
+    labels:
+      environment: demo
+    name: demo-java-app
+    namespace: pet-clinic-app
+    resourceVersion: "36413"
+    uid: 135185de-e939-49ec-8431-4b89ad91f068
+  spec:
+    progressDeadlineSeconds: 600
+    replicas: 2
+    revisionHistoryLimit: 10
+    selector:
+      matchLabels:
+        app: java-app
+        environment: demo
+    strategy:
+      rollingUpdate:
+        maxSurge: 25%
+        maxUnavailable: 25%
+      type: RollingUpdate
+    template:
+      metadata:
+        labels:
+          app: java-app
+          environment: demo
+      spec:
+        containers:
+        - command:
+          - java
+          - -jar
+          - /app/java.jar
+          - --spring.config.location=/opt/config/application.properties
+          - --spring.profiles.active=mysql
+          env:
+          - name: DB_USERNAME
+            valueFrom:
+              secretKeyRef:
+                key: username
+                name: demo-mysql-cred
+          - name: DB_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                key: password
+                name: demo-mysql-cred
+          image: techiescamp/kube-petclinic-app:3.0.0
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+              scheme: HTTP
+            periodSeconds: 15
+            successThreshold: 1
+            timeoutSeconds: 10
+          name: java-app-container
+          ports:
+          - containerPort: 8080
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8080
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 10
+          resources:
+            limits:
+              cpu: 200m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          startupProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /actuator/health
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 180
+            periodSeconds: 20
+            successThreshold: 1
+            timeoutSeconds: 1
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /opt/config
+            name: java-app-config
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+        volumes:
+        - configMap:
+            defaultMode: 420
+            name: demo-java-app-config
+          name: java-app-config
+  status:
+    conditions:
+    - lastTransitionTime: "2026-04-22T13:46:26Z"
+      lastUpdateTime: "2026-04-22T13:46:26Z"
+      message: Deployment does not have minimum availability.
+      reason: MinimumReplicasUnavailable
+      status: "False"
+      type: Available
+    - lastTransitionTime: "2026-04-22T13:46:26Z"
+      lastUpdateTime: "2026-04-22T13:46:26Z"
+      message: ReplicaSet "demo-java-app-687459766d" is progressing.
+      reason: ReplicaSetUpdated
+      status: "True"
+      type: Progressing
+    observedGeneration: 1
+    replicas: 2
+    unavailableReplicas: 2
+    updatedReplicas: 2
+- apiVersion: apps/v1
+  kind: StatefulSet
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"apps/v1","kind":"StatefulSet","metadata":{"annotations":{},"labels":{"environment":"demo"},"name":"demo-mysql","namespace":"pet-clinic-db"},"spec":{"replicas":1,"selector":{"matchLabels":{"app":"mysql","environment":"demo"}},"serviceName":"mysql","template":{"metadata":{"labels":{"app":"mysql","environment":"demo"}},"spec":{"containers":[{"env":[{"name":"MYSQL_RANDOM_ROOT_PASSWORD","value":"yes"},{"name":"MYSQL_USER","valueFrom":{"secretKeyRef":{"key":"username","name":"demo-mysql-cred"}}},{"name":"MYSQL_PASSWORD","valueFrom":{"secretKeyRef":{"key":"password","name":"demo-mysql-cred"}}},{"name":"MYSQL_DATABASE","value":"petclinic"}],"image":"mysql:latest","name":"mysql","resources":{"limits":{"cpu":"200m","memory":"512Mi"},"requests":{"cpu":"100m","memory":"256Mi"}},"volumeMounts":[{"mountPath":"/docker-entrypoint-initdb.d","name":"mysql-config"}]}],"volumes":[{"configMap":{"name":"demo-mysql-configmap"},"name":"mysql-config"}]}}}}
+    creationTimestamp: "2026-04-22T13:46:26Z"
+    generation: 1
+    labels:
+      environment: demo
+    name: demo-mysql
+    namespace: pet-clinic-db
+    resourceVersion: "36442"
+    uid: f9df1dfb-298b-4e73-b84a-e370350d7726
+  spec:
+    persistentVolumeClaimRetentionPolicy:
+      whenDeleted: Retain
+      whenScaled: Retain
+    podManagementPolicy: OrderedReady
+    replicas: 1
+    revisionHistoryLimit: 10
+    selector:
+      matchLabels:
+        app: mysql
+        environment: demo
+    serviceName: mysql
+    template:
+      metadata:
+        labels:
+          app: mysql
+          environment: demo
+      spec:
+        containers:
+        - env:
+          - name: MYSQL_RANDOM_ROOT_PASSWORD
+            value: "yes"
+          - name: MYSQL_USER
+            valueFrom:
+              secretKeyRef:
+                key: username
+                name: demo-mysql-cred
+          - name: MYSQL_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                key: password
+                name: demo-mysql-cred
+          - name: MYSQL_DATABASE
+            value: petclinic
+          image: mysql:latest
+          imagePullPolicy: Always
+          name: mysql
+          resources:
+            limits:
+              cpu: 200m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /docker-entrypoint-initdb.d
+            name: mysql-config
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+        volumes:
+        - configMap:
+            defaultMode: 420
+            name: demo-mysql-configmap
+          name: mysql-config
+    updateStrategy:
+      rollingUpdate:
+        partition: 0
+      type: RollingUpdate
+  status:
+    availableReplicas: 1
+    collisionCount: 0
+    currentReplicas: 1
+    currentRevision: demo-mysql-7bf6486d55
+    observedGeneration: 1
+    readyReplicas: 1
+    replicas: 1
+    updateRevision: demo-mysql-7bf6486d55
+    updatedReplicas: 1
+- apiVersion: autoscaling/v2
+  kind: HorizontalPodAutoscaler
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"autoscaling/v2","kind":"HorizontalPodAutoscaler","metadata":{"annotations":{},"labels":{"environment":"demo"},"name":"demo-java-app-hpa","namespace":"pet-clinic-app"},"spec":{"maxReplicas":5,"metrics":[{"resource":{"name":"cpu","target":{"averageUtilization":70,"type":"Utilization"}},"type":"Resource"}],"minReplicas":2,"scaleTargetRef":{"apiVersion":"apps/v1","kind":"Deployment","name":"demo-java-app"}}}
+    creationTimestamp: "2026-04-22T13:46:26Z"
+    labels:
+      environment: demo
+    name: demo-java-app-hpa
+    namespace: pet-clinic-app
+    resourceVersion: "36458"
+    uid: 96c30e1c-936e-42b3-afa4-424f14d21420
+  spec:
+    maxReplicas: 5
+    metrics:
+    - resource:
+        name: cpu
+        target:
+          averageUtilization: 70
+          type: Utilization
+      type: Resource
+    minReplicas: 2
+    scaleTargetRef:
+      apiVersion: apps/v1
+      kind: Deployment
+      name: demo-java-app
+  status:
+    conditions:
+    - lastTransitionTime: "2026-04-22T13:46:41Z"
+      message: the HPA controller was able to get the target's current scale
+      reason: SucceededGetScale
+      status: "True"
+      type: AbleToScale
+    - lastTransitionTime: "2026-04-22T13:46:41Z"
+      message: 'the HPA was unable to compute the replica count: failed to get cpu
+        utilization: did not receive metrics for targeted pods (pods might be unready)'
+      reason: FailedGetResourceMetric
+      status: "False"
+      type: ScalingActive
+    currentMetrics:
+    - type: ""
+    currentReplicas: 2
+    desiredReplicas: 0
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"networking.k8s.io/v1","kind":"Ingress","metadata":{"annotations":{"nginx.ingress.kubernetes.io/rewrite-target":"/"},"labels":{"environment":"demo"},"name":"demo-java-app-ingress","namespace":"pet-clinic-app"},"spec":{"rules":[{"host":"pet-clinic-demo.local","http":{"paths":[{"backend":{"service":{"name":"demo-java-app-service","port":{"number":8080}}},"path":"/","pathType":"Prefix"}]}}]}}
+      nginx.ingress.kubernetes.io/rewrite-target: /
+    creationTimestamp: "2026-04-22T13:46:26Z"
+    generation: 1
+    labels:
+      environment: demo
+    name: demo-java-app-ingress
+    namespace: pet-clinic-app
+    resourceVersion: "36486"
+    uid: 025852eb-6590-4d2f-bde5-36527d2f7dae
+  spec:
+    ingressClassName: nginx
+    rules:
+    - host: pet-clinic-demo.local
+      http:
+        paths:
+        - backend:
+            service:
+              name: demo-java-app-service
+              port:
+                number: 8080
+          path: /
+          pathType: Prefix
+  status:
+    loadBalancer:
+      ingress:
+      - ip: 192.168.49.2
+kind: List
+metadata: {}
