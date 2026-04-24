@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: whoami
+  namespace: whoami
+spec:
+  selector:
+    app.kubernetes.io/name: whoami # label du pod
+  # Si non précisé, le service est de type ClusterIP par défaut  
+  # type: NodePort # type de service (ClusterIP, NodePort, LoadBalancer)
+  ports:
+  - port: 80 # port du service
+    targetPort: 80 # port du conteneur dans le pod
+    protocol: TCP # protocole utilisé (TCP ou UDP) - TCP par défaut
+    # nodePort: 30080 # port sur lequel le service est exposé sur les nœuds (si type NodePort)
